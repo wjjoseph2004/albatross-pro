@@ -4,7 +4,7 @@ import time
 import pandas as pd
 from datetime import datetime
 
-st.set_page_config(page_title="Albatross Platinum", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Albatross Diamond", page_icon="🦅", layout="wide")
 
 # --- 1. SETUP ---
 try:
@@ -20,7 +20,6 @@ TOP_3_KEYS = ['soccer_epl', 'basketball_nba', 'tennis_atp']
 # Initialize Session State
 if 'quota' not in st.session_state: st.session_state.quota = "Unknown"
 if 'ledger' not in st.session_state: 
-    # Create an empty dataframe to store bets
     st.session_state.ledger = pd.DataFrame(columns=["Date", "Match", "Profit (£)", "Bookie 1", "Bookie 2"])
 
 # --- 2. ADVISOR ---
@@ -105,7 +104,7 @@ def get_arbs_cached(sport_key, investment, selected_bookies_tuple, ghost_mode):
     return found_arbs
 
 # --- 5. INTERFACE ---
-st.title("🦅 Albatross Platinum")
+st.title("🦅 Albatross Diamond")
 st.info(get_sniper_advice())
 
 # SIDEBAR
@@ -124,7 +123,7 @@ min_profit = st.sidebar.slider("Min Profit (£)", 0.0, 10.0, 0.50)
 ghost_mode = st.sidebar.checkbox("👻 Ghost Mode", value=False)
 
 # TABS
-tab1, tab2, tab3 = st.tabs(["🎯 Manual Scope", "🚀 Fire Sniper", "📒 My Ledger"])
+tab1, tab2, tab3, tab4 = st.tabs(["🎯 Manual Scope", "🚀 Fire Sniper", "📒 My Ledger", "📘 Help Guide"])
 
 def display_arbs(results):
     count = 0
@@ -201,21 +200,44 @@ with tab3:
     with st.form("add_bet"):
         c1, c2, c3 = st.columns(3)
         date = c1.date_input("Date")
-        match = c2.text_input("Match (e.g. Arsenal vs Chelsea)")
+        match = c2.text_input("Match")
         profit = c3.number_input("Profit (£)", min_value=0.0, step=0.1)
         bk1 = c1.selectbox("Bookie 1", all_uk_bookies)
         bk2 = c2.selectbox("Bookie 2", all_uk_bookies)
-        submitted = st.form_submit_button("💾 Log Win")
-        
-        if submitted:
+        if st.form_submit_button("💾 Log Win"):
             new_row = {"Date": date, "Match": match, "Profit (£)": profit, "Bookie 1": bk1, "Bookie 2": bk2}
             st.session_state.ledger = pd.concat([st.session_state.ledger, pd.DataFrame([new_row])], ignore_index=True)
-            st.success(f"Added £{profit} win!")
+            st.success("Win Logged!")
             
     if not st.session_state.ledger.empty:
         st.write("### 📈 Your Growth")
         st.line_chart(st.session_state.ledger.set_index("Date")["Profit (£)"].cumsum())
+        
+        # EXPORT BUTTON
+        csv = st.session_state.ledger.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Download CSV", data=csv, file_name="albatross_ledger.csv", mime="text/csv")
+        
         st.dataframe(st.session_state.ledger)
     else:
-        st.info("No wins logged yet. Go find some arbs!")
+        st.info("No wins logged yet.")
 
+with tab4:
+    st.write("## 📘 How to Use Albatross")
+    st.markdown("""
+    ### 1. The Golden Rule 🛑
+    * **Never bet on Red Cards:** If you see a card with a RED background (Profit > 20%), it is likely a bookie error. If you bet on it, your account might be restricted. **Stick to Green/White cards.**
+    
+    ### 2. How to "Snipe" 🔫
+    * **Morning (8-10am):** Scan `Tennis`.
+    * **Afternoon (1-2pm):** Scan `Soccer (EPL)`.
+    * **Evening (6-10pm):** Scan `NBA / US Sports`.
+    * **Tip:** Use the **Blue Advisor Box** at the top of the screen; it tells you the best current target.
+    
+    ### 3. What is "Ghost Mode"? 👻
+    * **OFF:** The app tells you to bet `£42.50`. This maximizes profit but looks mathematical.
+    * **ON:** The app rounds the bet to `£43.00`. You lose a few pennies of profit, but you look like a "normal" gambler. **Recommended for new accounts.**
+    
+    ### 4. Saving Credits 💳
+    * You have 500 scans per month.
+    * The app has a **15-minute memory**. If you scan the Premier League twice in 10 minutes, the second scan is **FREE**.
+    """)
