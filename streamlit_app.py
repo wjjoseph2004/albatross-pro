@@ -17,6 +17,7 @@ REGION = 'uk'
 MARKET = 'h2h'
 
 # --- TRANSLATOR (Readable Names) ---
+# We use these for the big sports. Everything else will just use its normal name.
 SPORT_LABELS = {
     "soccer_epl": "🇬🇧 Premier League",
     "soccer_uefa_champs_league": "🇪🇺 Champions League",
@@ -44,7 +45,7 @@ if 'quota' not in st.session_state: st.session_state.quota = "Unknown"
 if 'ledger' not in st.session_state: 
     st.session_state.ledger = pd.DataFrame(columns=["Date", "Match", "Profit (£)", "Bookie 1", "Bookie 2"])
 
-# --- 2. ADVISOR (Updated to Match Menu) ---
+# --- 2. ADVISOR ---
 def get_sniper_advice():
     h = datetime.utcnow().hour
     if 6 <= h < 11: 
@@ -64,12 +65,18 @@ def get_active_sports():
         res = requests.get(url)
         if 'x-requests-remaining' in res.headers: st.session_state.quota = res.headers['x-requests-remaining']
         
-        # Filter and Translate
         active_sports = {}
         for s in res.json():
-            if s['active'] and s['key'] in SPORT_LABELS:
-                readable_name = SPORT_LABELS[s['key']]
-                active_sports[readable_name] = s['key']
+            if not s['active']: continue
+            
+            # HYBRID LOGIC: Use fancy name if we have it, otherwise use default title
+            if s['key'] in SPORT_LABELS:
+                display_name = SPORT_LABELS[s['key']]
+            else:
+                display_name = s['title']
+            
+            active_sports[display_name] = s['key']
+            
         return active_sports
     except:
         return {}
@@ -250,30 +257,3 @@ with tab3:
         if st.form_submit_button("💾 Log Win"):
             new_row = {"Date": date, "Match": match, "Profit (£)": profit, "Bookie 1": bk1, "Bookie 2": bk2}
             st.session_state.ledger = pd.concat([st.session_state.ledger, pd.DataFrame([new_row])], ignore_index=True)
-            st.success("Win Logged!")
-            
-    if not st.session_state.ledger.empty:
-        st.write("### 📈 Your Growth")
-        st.line_chart(st.session_state.ledger.set_index("Date")["Profit (£)"].cumsum())
-        csv = st.session_state.ledger.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Download CSV", data=csv, file_name="albatross_ledger.csv", mime="text/csv")
-        st.dataframe(st.session_state.ledger)
-    else:
-        st.info("No wins logged yet.")
-
-with tab4:
-    st.write("## 📘 How to Use Albatross")
-    st.markdown("""
-    ### 1. The Golden Rule 🛑
-    * **Never bet on Red Cards:** If you see a card with a RED background (Profit > 20%), it is likely a bookie error. If you bet on it, your account might be restricted. **Stick to Green/White cards.**
-    
-    ### 2. Supported Sports (Renamed)
-    * **🇬🇧 Premier League**
-    * **🇪🇺 Champions League**
-    * **🇺🇸 NBA**
-    * **🎾 Tennis (ATP/WTA)**
-    
-    ### 3. What is "Ghost Mode"? 👻
-    * **OFF:** The app tells you to bet `£42.50`. This maximizes profit but looks mathematical.
-    * **ON:** The app rounds the bet to `£43.00`. You lose a few pennies of profit, but you look like a "normal" gambler. **Recommended for new accounts.**
-    """)
