@@ -84,11 +84,10 @@ def get_arbs_engine(sport_key, investment, selected_bookies_tuple, ghost_mode, t
     for event in events:
         if 'bookmakers' not in event: continue
         
-        # TIME PARSING (New Feature)
-        # API Format: 2023-10-27T19:00:00Z
+        # TIME PARSING
         try:
             start_dt = datetime.strptime(event['commence_time'], "%Y-%m-%dT%H:%M:%SZ")
-            start_str = start_dt.strftime("%H:%M") # e.g. "19:45"
+            start_str = start_dt.strftime("%H:%M")
         except:
             start_str = "Soon"
             
@@ -166,7 +165,7 @@ c1.link_button("⚽ FlashScore", "https://www.flashscore.co.uk")
 c2.link_button("📡 LiveScore", "https://www.livescore.com")
 st.markdown("---")
 
-# MOVED TEST MODE HERE SO YOU CAN'T MISS IT
+# MOVED TEST MODE HERE
 test_mode = st.checkbox("🛠️ **Test Mode (Show All Odds)** - Check this to see all matches instantly.", value=True)
 
 # TABS
@@ -174,7 +173,6 @@ tab1, tab2, tab3, tab4 = st.tabs(["🎯 Manual Scope", "🚀 Fire Sniper", "📒
 
 def display_arbs(results):
     count = 0
-    # SORT RESULTS BY PROFIT (Highest First)
     sorted_results = sorted(results, key=lambda x: x['profit_pct'], reverse=True)
     
     for a in sorted_results:
@@ -222,7 +220,7 @@ def display_arbs(results):
         </div>""", unsafe_allow_html=True)
     
     if count == 0: 
-        if test_mode: st.warning("No matches found at all. Check if the sport is active or if the season is over.")
+        if test_mode: st.warning("No matches found for this sport. Try a different one.")
         else: st.warning(f"No arbs found above £{min_profit:.2f}. Enable 'Test Mode' to see close matches.")
     else: 
         st.success(f"Scan Complete. Showing {count} results.")
@@ -231,66 +229,16 @@ with tab1:
     sports = get_active_sports()
     if not sports: st.info("Fetching sports list...")
     else:
-        sorted_names = sorted(list(sports.keys()))
-        choice_name = st.selectbox("Select Target Sport", sorted_names)
-        choice_key = sports[choice_name]
-
-        if st.button("Scan Market"):
-            with st.spinner(f"Scanning {choice_name}..."):
-                res = get_arbs_engine(choice_key, invest, bookies_tuple, ghost_mode, test_mode)
-                if not res: st.warning("No data found from API.")
-                else: display_arbs(res)
-
-with tab2:
-    st.write("Scans **EPL, NBA, Tennis**.")
-    if st.button("🚀 SCAN TOP 3", type="primary"):
-        all_res = []
-        stat = st.empty()
-        for k in TOP_3_KEYS:
-            stat.text(f"Scanning {k}...")
-            found = get_arbs_engine(k, invest, bookies_tuple, ghost_mode, test_mode)
-            all_res.extend(found)
-            time.sleep(0.1)
-        stat.empty()
-        if not all_res: st.info("No arbs found.")
-        else: 
-            st.balloons()
-            display_arbs(all_res)
-
-with tab3:
-    st.write("### 📒 My Profit Tracker")
-    with st.form("add_bet"):
-        c1, c2, c3 = st.columns(3)
-        date = c1.date_input("Date")
-        match = c2.text_input("Match")
-        profit = c3.number_input("Profit (£)", min_value=0.0, step=0.1)
-        bk1 = c1.selectbox("Bookie 1", all_uk_bookies)
-        bk2 = c2.selectbox("Bookie 2", all_uk_bookies)
-        if st.form_submit_button("💾 Log Win"):
-            new_row = {"Date": date, "Match": match, "Profit (£)": profit, "Bookie 1": bk1, "Bookie 2": bk2}
-            st.session_state.ledger = pd.concat([st.session_state.ledger, pd.DataFrame([new_row])], ignore_index=True)
-            st.success("Win Logged!")
-            
-    if not st.session_state.ledger.empty:
-        st.line_chart(st.session_state.ledger.set_index("Date")["Profit (£)"].cumsum())
-        csv = st.session_state.ledger.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Download CSV", data=csv, file_name="ledger.csv", mime="text/csv")
-        st.dataframe(st.session_state.ledger)
-    else:
-        st.info("No wins logged yet.")
-
-with tab4:
-    st.write("## 📘 User Guide")
-    st.markdown("""
-    ### 1. 🛠️ How to use 'Test Mode'
-    * Check the **Test Mode** box (above the tabs).
-    * If you see **Gray Cards**, the app is working!
-    * **No Gray Cards?** That means there are no games for that sport right now.
-    
-    ### 2. 🕒 Kick-off Times
-    * Look at the top right of each card.
-    * It will show you the start time (e.g., **"🕒 19:45"**).
-    
-    ### 3. 🛑 The Red Card Rule
-    * **Red Background = High Danger.** If profit is >20%, it is likely a bookie error.
-    """)
+        # --- PRIORITY SORTING LOGIC ---
+        # This forces EPL, NBA, and Tennis to the top of the list
+        all_names = list(sports.keys())
+        priority = ["🇬🇧 Premier League", "🇺🇸 NBA", "🎾 Tennis (ATP)", "🎾 Tennis (WTA)"]
+        
+        # 1. Find the priority sports that are currently active
+        top_list = [name for name in priority if name in all_names]
+        
+        # 2. Find everything else and sort it A-Z
+        other_list = sorted([name for name in all_names if name not in priority])
+        
+        # 3. Combine them
+        final_menu = top_list
