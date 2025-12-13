@@ -83,6 +83,15 @@ def get_arbs_engine(sport_key, investment, selected_bookies_tuple, ghost_mode, t
     
     for event in events:
         if 'bookmakers' not in event: continue
+        
+        # TIME PARSING (New Feature)
+        # API Format: 2023-10-27T19:00:00Z
+        try:
+            start_dt = datetime.strptime(event['commence_time'], "%Y-%m-%dT%H:%M:%SZ")
+            start_str = start_dt.strftime("%H:%M") # e.g. "19:45"
+        except:
+            start_str = "Soon"
+            
         teams = [event['home_team'], event['away_team']]
         best_odds = {}
         
@@ -104,7 +113,6 @@ def get_arbs_engine(sport_key, investment, selected_bookies_tuple, ghost_mode, t
         ip2 = 1 / best_odds[teams[1]]['price']
         total_ip = ip1 + ip2
         
-        # LOGIC: If (Total IP < 1.0) OR (Test Mode is ON), show the result.
         if total_ip < 1.0 or test_mode: 
             roi = ((1 / total_ip) - 1) * 100
             
@@ -124,6 +132,7 @@ def get_arbs_engine(sport_key, investment, selected_bookies_tuple, ghost_mode, t
 
             results.append({
                 "match": f"{teams[0]} vs {teams[1]}",
+                "start": start_str,
                 "profit_pct": roi,
                 "profit_money": profit_money,
                 "t1": teams[0], "b1": stake1, "o1": best_odds[teams[0]]['price'], "bk1": best_odds[teams[0]]['bookie'],
@@ -150,8 +159,6 @@ invest = st.sidebar.number_input("Bankroll (£)", value=100)
 st.sidebar.subheader("🛡️ Safety & Filters")
 min_profit = st.sidebar.slider("Min Profit (£)", 0.0, 10.0, 0.50)
 ghost_mode = st.sidebar.checkbox("👻 Ghost Mode", value=False)
-# CHANGE HERE: Default value is True so you see it immediately
-test_mode = st.sidebar.checkbox("🛠️ Test Mode (Show All)", value=True)
 
 st.write("🔍 **Pre-Scan Tools:**")
 c1, c2 = st.columns([1,1])
@@ -159,31 +166,34 @@ c1.link_button("⚽ FlashScore", "https://www.flashscore.co.uk")
 c2.link_button("📡 LiveScore", "https://www.livescore.com")
 st.markdown("---")
 
+# MOVED TEST MODE HERE SO YOU CAN'T MISS IT
+test_mode = st.checkbox("🛠️ **Test Mode (Show All Odds)** - Check this to see all matches instantly.", value=True)
+
 # TABS
 tab1, tab2, tab3, tab4 = st.tabs(["🎯 Manual Scope", "🚀 Fire Sniper", "📒 My Ledger", "📘 Help Guide"])
 
 def display_arbs(results):
     count = 0
-    for a in results:
-        # FILTER: Only hide losing bets if Test Mode is OFF
+    # SORT RESULTS BY PROFIT (Highest First)
+    sorted_results = sorted(results, key=lambda x: x['profit_pct'], reverse=True)
+    
+    for a in sorted_results:
         if not test_mode and a['profit_money'] < min_profit: continue
-        
         count += 1
         
-        # CARD STYLING
         if a['profit_pct'] > 0:
-            color = "#e8f5e9" # Green (Profit)
+            color = "#e8f5e9"
             border = "#c8e6c9"
             title_color = "#2e7d32"
             status = "WIN"
         else:
-            color = "#f5f5f5" # Grey (No Profit)
+            color = "#f5f5f5"
             border = "#ddd"
             title_color = "#666"
-            status = "NO ARB" # This is for Test Mode
+            status = "NO ARB"
 
         if a['profit_pct'] > 20.0:
-            color = "#ffebee" # Red Warning
+            color = "#ffebee"
             status = "⚠️ ERROR?"
         
         search_q1 = f"{a['bk1']} {a['t1']} vs {a['t2']} odds"
@@ -195,6 +205,7 @@ def display_arbs(results):
         <div style="background-color:{color}; padding:15px; border-radius:10px; border:1px solid {border}; margin-bottom:10px;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <h4 style="margin:0; color:{title_color};">{status}: £{a['profit_money']:.2f} ({a['profit_pct']:.2f}%)</h4>
+                <span style="background-color:#fff; padding:2px 8px; border-radius:5px; font-size:0.8em; font-weight:bold;">🕒 {a['start']}</span>
             </div>
             <p><b>{a['match']}</b></p>
             <hr style="margin:5px 0;">
@@ -211,10 +222,10 @@ def display_arbs(results):
         </div>""", unsafe_allow_html=True)
     
     if count == 0: 
-        if test_mode: st.warning("No odds found at all. Is the match live?")
+        if test_mode: st.warning("No matches found at all. Check if the sport is active or if the season is over.")
         else: st.warning(f"No arbs found above £{min_profit:.2f}. Enable 'Test Mode' to see close matches.")
     else: 
-        st.success(f"Showing {count} results.")
+        st.success(f"Scan Complete. Showing {count} results.")
 
 with tab1:
     sports = get_active_sports()
@@ -227,7 +238,7 @@ with tab1:
         if st.button("Scan Market"):
             with st.spinner(f"Scanning {choice_name}..."):
                 res = get_arbs_engine(choice_key, invest, bookies_tuple, ghost_mode, test_mode)
-                if not res: st.warning("No data found.")
+                if not res: st.warning("No data found from API.")
                 else: display_arbs(res)
 
 with tab2:
@@ -272,13 +283,14 @@ with tab4:
     st.write("## 📘 User Guide")
     st.markdown("""
     ### 1. 🛠️ How to use 'Test Mode'
-    * If you scan and find nothing, check the **"Test Mode"** box in the sidebar.
-    * This will show you **all** matches (Gray Cards), even losing ones.
-    * If you see Gray Cards, the app is working perfectly! Just wait for a mistake.
+    * Check the **Test Mode** box (above the tabs).
+    * If you see **Gray Cards**, the app is working!
+    * **No Gray Cards?** That means there are no games for that sport right now.
     
-    ### 2. 🛑 The Red Card Rule
-    * **Red Background = High Danger.** If profit is >20%, it is likely a bookie error. Do not bet.
+    ### 2. 🕒 Kick-off Times
+    * Look at the top right of each card.
+    * It will show you the start time (e.g., **"🕒 19:45"**).
     
-    ### 3. 👻 Ghost Mode
-    * Keeps you under the radar by rounding your bets to whole numbers (e.g., £43.00 instead of £43.12).
+    ### 3. 🛑 The Red Card Rule
+    * **Red Background = High Danger.** If profit is >20%, it is likely a bookie error.
     """)
