@@ -15,9 +15,32 @@ except:
 
 REGION = 'uk'
 MARKET = 'h2h'
+
+# --- THE TRANSLATOR (Readable Names) ---
+# This dictionary maps the ugly API keys to beautiful names
+SPORT_LABELS = {
+    "soccer_epl": "🇬🇧 Premier League",
+    "soccer_uefa_champs_league": "🇪🇺 Champions League",
+    "soccer_england_champ": "🇬🇧 Championship",
+    "soccer_fa_cup": "🇬🇧 FA Cup",
+    "soccer_spain_la_liga": "🇪🇸 La Liga",
+    "soccer_germany_bundesliga": "🇩🇪 Bundesliga",
+    "soccer_italy_serie_a": "🇮🇹 Serie A",
+    "soccer_france_ligue_one": "🇫🇷 Ligue 1",
+    "basketball_nba": "🇺🇸 NBA",
+    "americanfootball_nfl": "🇺🇸 NFL",
+    "icehockey_nhl": "🇺🇸 NHL",
+    "baseball_mlb": "🇺🇸 MLB",
+    "tennis_atp": "🎾 Tennis (ATP)",
+    "tennis_wta": "🎾 Tennis (WTA)",
+    "cricket_test_match": "🏏 Cricket (Test)",
+    "rugby_union_premiership_rugby": "🏉 Rugby Premiership",
+    "mma_mixed_martial_arts": "🥊 MMA / UFC"
+}
+
+# Define our "Sniper Targets" using the Keys
 TOP_3_KEYS = ['soccer_epl', 'basketball_nba', 'tennis_atp']
 
-# Initialize Session State
 if 'quota' not in st.session_state: st.session_state.quota = "Unknown"
 if 'ledger' not in st.session_state: 
     st.session_state.ledger = pd.DataFrame(columns=["Date", "Match", "Profit (£)", "Bookie 1", "Bookie 2"])
@@ -26,7 +49,7 @@ if 'ledger' not in st.session_state:
 def get_sniper_advice():
     h = datetime.utcnow().hour
     if 6 <= h < 11: return "🌅 **Morning:** Target **Tennis**. European matches starting."
-    elif 11 <= h < 17: return "☀️ **Afternoon:** Target **EPL**. Check team news."
+    elif 11 <= h < 17: return "☀️ **Afternoon:** Target **Premier League**. Check team news."
     elif 17 <= h < 22: return "🌆 **Evening:** Target **NBA**. US market waking up."
     else: return "🌙 **Night:** Target **NHL/NBA**. Late moves."
 
@@ -37,7 +60,16 @@ def get_active_sports():
     try:
         res = requests.get(url)
         if 'x-requests-remaining' in res.headers: st.session_state.quota = res.headers['x-requests-remaining']
-        return {s['title']: s['key'] for s in res.json() if s['active']}
+        
+        # We only keep sports that are in our LABEL list to keep the menu clean
+        # If you want ALL sports, remove the 'if s['key'] in SPORT_LABELS' part.
+        active_sports = {}
+        for s in res.json():
+            if s['active'] and s['key'] in SPORT_LABELS:
+                # Use our readable name as the label, store the key as value
+                readable_name = SPORT_LABELS[s['key']]
+                active_sports[readable_name] = s['key']
+        return active_sports
     except:
         return {}
 
@@ -122,7 +154,6 @@ st.sidebar.subheader("🛡️ Safety & Filters")
 min_profit = st.sidebar.slider("Min Profit (£)", 0.0, 10.0, 0.50)
 ghost_mode = st.sidebar.checkbox("👻 Ghost Mode", value=False)
 
-# RESTORED: PRE-SCAN TOOLS
 st.write("🔍 **Pre-Scan Tools (Check before you click!):**")
 c1, c2 = st.columns([1,1])
 c1.link_button("⚽ Check FlashScore", "https://www.flashscore.co.uk")
@@ -145,7 +176,6 @@ def display_arbs(results):
             color = "#ffebee"
             warn = "🚨 <b>HIGH RISK:</b> >20% Profit. Possible Error."
         
-        # RESTORED: GOOGLE SEARCH LINKS
         search_q1 = f"{a['bk1']} {a['t1']} vs {a['t2']} odds"
         search_q2 = f"{a['bk2']} {a['t1']} vs {a['t2']} odds"
         link1 = f"https://www.google.com/search?q={search_q1.replace(' ', '+')}"
@@ -178,12 +208,18 @@ def display_arbs(results):
 
 with tab1:
     sports = get_active_sports()
-    if not sports: st.info("Fetching sports...")
+    if not sports: st.info("Fetching sports list (or none active)...")
     else:
-        choice = st.selectbox("Target Sport", list(sports.keys()))
+        # Sort the readable names alphabetically
+        sorted_names = sorted(list(sports.keys()))
+        choice_name = st.selectbox("Select Target Sport", sorted_names)
+        
+        # We need to get the "Key" back from the "Name"
+        choice_key = sports[choice_name]
+
         if st.button("Scan Market"):
-            with st.spinner(f"Scanning {choice}..."):
-                res = get_arbs_cached(sports[choice], invest, bookies_tuple, ghost_mode)
+            with st.spinner(f"Scanning {choice_name}..."):
+                res = get_arbs_cached(choice_key, invest, bookies_tuple, ghost_mode)
                 if not res: st.warning("No data found.")
                 else: display_arbs(res)
 
@@ -220,11 +256,8 @@ with tab3:
     if not st.session_state.ledger.empty:
         st.write("### 📈 Your Growth")
         st.line_chart(st.session_state.ledger.set_index("Date")["Profit (£)"].cumsum())
-        
-        # EXPORT BUTTON
         csv = st.session_state.ledger.to_csv(index=False).encode('utf-8')
         st.download_button("📥 Download CSV", data=csv, file_name="albatross_ledger.csv", mime="text/csv")
-        
         st.dataframe(st.session_state.ledger)
     else:
         st.info("No wins logged yet.")
@@ -235,17 +268,14 @@ with tab4:
     ### 1. The Golden Rule 🛑
     * **Never bet on Red Cards:** If you see a card with a RED background (Profit > 20%), it is likely a bookie error. If you bet on it, your account might be restricted. **Stick to Green/White cards.**
     
-    ### 2. How to "Snipe" 🔫
-    * **Morning (8-10am):** Scan `Tennis`.
-    * **Afternoon (1-2pm):** Scan `Soccer (EPL)`.
-    * **Evening (6-10pm):** Scan `NBA / US Sports`.
-    * **Tip:** Use the **Blue Advisor Box** at the top of the screen; it tells you the best current target.
+    ### 2. Supported Sports (Renamed)
+    * **🇬🇧 Premier League** (`soccer_epl`)
+    * **🇪🇺 Champions League** (`soccer_uefa_champs_league`)
+    * **🇺🇸 NBA** (`basketball_nba`)
+    * **🎾 Tennis** (`tennis_atp`)
+    * *Note: If a sport isn't active right now, it won't appear in the list.*
     
     ### 3. What is "Ghost Mode"? 👻
     * **OFF:** The app tells you to bet `£42.50`. This maximizes profit but looks mathematical.
     * **ON:** The app rounds the bet to `£43.00`. You lose a few pennies of profit, but you look like a "normal" gambler. **Recommended for new accounts.**
-    
-    ### 4. Saving Credits 💳
-    * You have 500 scans per month.
-    * The app has a **15-minute memory**. If you scan the Premier League twice in 10 minutes, the second scan is **FREE**.
     """)
