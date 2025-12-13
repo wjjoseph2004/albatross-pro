@@ -9,7 +9,6 @@ st.set_page_config(page_title="Albatross Diamond", page_icon="🦅", layout="wid
 
 # --- 1. SETUP (YOUR PRIVATE KEY) ---
 API_KEY = "ccc71cee1188b0ff21fe42e9a7d174cd"
-
 REGION = 'uk'
 MARKET = 'h2h'
 
@@ -37,8 +36,9 @@ SPORT_LABELS = {
 TOP_3_KEYS = ['soccer_epl', 'basketball_nba', 'tennis_atp']
 
 # Session State
-if 'quota' not in st.session_state: st.session_state.quota = "Unknown"
-if 'ledger' not in st.session_state: 
+if 'quota' not in st.session_state:
+    st.session_state.quota = "Unknown"
+if 'ledger' not in st.session_state:
     st.session_state.ledger = pd.DataFrame(columns=["Date", "Match", "Profit (£)", "Bookie 1", "Bookie 2"])
 
 # --- 2. ADVISOR ---
@@ -55,14 +55,17 @@ def get_active_sports():
     url = f'https://api.the-odds-api.com/v4/sports?apiKey={API_KEY}'
     try:
         res = requests.get(url)
-        if 'x-requests-remaining' in res.headers: st.session_state.quota = res.headers['x-requests-remaining']
+        if 'x-requests-remaining' in res.headers:
+            st.session_state.quota = res.headers['x-requests-remaining']
         
         active_sports = {}
         for s in res.json():
             if not s['active']: continue
-            if s['key'] in SPORT_LABELS: display_name = SPORT_LABELS[s['key']]
-            else: display_name = s['title']
-            active_sports[display_name] = s['key']
+            if s['key'] in SPORT_LABELS:
+                name = SPORT_LABELS[s['key']]
+            else:
+                name = s['title']
+            active_sports[name] = s['key']
         return active_sports
     except:
         return {}
@@ -74,7 +77,8 @@ def get_arbs_engine(sport_key, investment, selected_bookies_tuple, ghost_mode, t
     
     try:
         res = requests.get(url, params=params)
-        if 'x-requests-remaining' in res.headers: st.session_state.quota = res.headers['x-requests-remaining']
+        if 'x-requests-remaining' in res.headers:
+            st.session_state.quota = res.headers['x-requests-remaining']
         events = res.json()
     except:
         return []
@@ -84,7 +88,6 @@ def get_arbs_engine(sport_key, investment, selected_bookies_tuple, ghost_mode, t
     for event in events:
         if 'bookmakers' not in event: continue
         
-        # TIME PARSING
         try:
             start_dt = datetime.strptime(event['commence_time'], "%Y-%m-%dT%H:%M:%SZ")
             start_str = start_dt.strftime("%H:%M")
@@ -141,11 +144,9 @@ def get_arbs_engine(sport_key, investment, selected_bookies_tuple, ghost_mode, t
     return results
 
 # --- 5. INTERFACE ---
-# IMPORTANT: These lines must start at the far left (NO INDENTATION)
 st.title("🦅 Albatross Diamond")
 st.info(get_sniper_advice())
 
-# SIDEBAR
 st.sidebar.header("📊 Live Status")
 st.sidebar.metric("API Credits", st.session_state.quota)
 st.sidebar.markdown("---")
@@ -166,14 +167,12 @@ c1.link_button("⚽ FlashScore", "https://www.flashscore.co.uk")
 c2.link_button("📡 LiveScore", "https://www.livescore.com")
 st.markdown("---")
 
-test_mode = st.checkbox("🛠️ **Test Mode (Show All Odds)** - Check this to see all matches instantly.", value=True)
+test_mode = st.checkbox("🛠️ **Test Mode** (Show All Odds)", value=True)
 
-# TABS
-tab1, tab2, tab3, tab4 = st.tabs(["🎯 Manual Scope", "🚀 Fire Sniper", "📒 My Ledger", "📘 Help Guide"])
+tab1, tab2, tab3, tab4 = st.tabs(["🎯 Scanner", "🚀 Top 3", "📒 Ledger", "📘 Help"])
 
 def display_arbs(results):
     count = 0
-    # Sort: Highest Profit First
     sorted_results = sorted(results, key=lambda x: x['profit_pct'], reverse=True)
     
     for a in sorted_results:
@@ -195,59 +194,19 @@ def display_arbs(results):
             color = "#ffebee"
             status = "⚠️ ERROR?"
         
-        search_q1 = f"{a['bk1']} {a['t1']} vs {a['t2']} odds"
-        search_q2 = f"{a['bk2']} {a['t1']} vs {a['t2']} odds"
-        link1 = f"https://www.google.com/search?q={search_q1.replace(' ', '+')}"
-        link2 = f"https://www.google.com/search?q={search_q2.replace(' ', '+')}"
+        q1 = f"{a['bk1']} {a['t1']} vs {a['t2']} odds"
+        q2 = f"{a['bk2']} {a['t1']} vs {a['t2']} odds"
+        l1 = f"https://www.google.com/search?q={q1.replace(' ', '+')}"
+        l2 = f"https://www.google.com/search?q={q2.replace(' ', '+')}"
 
         st.markdown(f"""
         <div style="background-color:{color}; padding:15px; border-radius:10px; border:1px solid {border}; margin-bottom:10px;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <h4 style="margin:0; color:{title_color};">{status}: £{a['profit_money']:.2f} ({a['profit_pct']:.2f}%)</h4>
-                <span style="background-color:#fff; padding:2px 8px; border-radius:5px; font-size:0.8em; font-weight:bold;">🕒 {a['start']}</span>
+                <span style="background-color:#fff; padding:2px 8px; border-radius:5px; font-size:0.8em;">🕒 {a['start']}</span>
             </div>
             <p><b>{a['match']}</b></p>
             <hr style="margin:5px 0;">
             <div style="display:flex; justify-content:space-between; font-size:0.9em;">
                 <div style="width:48%">
-                    <b>{a['t1']}</b><br>{a['o1']} ({a['bk1']})<br>
-                    <a href="{link1}" target="_blank">🔎 Google</a>
-                </div>
-                <div style="width:48%">
-                    <b>{a['t2']}</b><br>{a['o2']} ({a['bk2']})<br>
-                    <a href="{link2}" target="_blank">🔎 Google</a>
-                </div>
-            </div>
-        </div>""", unsafe_allow_html=True)
-    
-    if count == 0: 
-        if test_mode: st.warning("No matches found for this sport right now.")
-        else: st.warning(f"No arbs found above £{min_profit:.2f}. Enable 'Test Mode' to see close matches.")
-    else: 
-        st.success(f"Scan Complete. Showing {count} results.")
-
-with tab1:
-    sports = get_active_sports()
-    if not sports: st.info("Fetching sports list...")
-    else:
-        # --- PRIORITY SORTING (This puts NBA/EPL at the top) ---
-        all_names = list(sports.keys())
-        priority = ["🇬🇧 Premier League", "🇺🇸 NBA", "🎾 Tennis (ATP)", "🎾 Tennis (WTA)"]
-        
-        top_list = [name for name in priority if name in all_names]
-        other_list = sorted([name for name in all_names if name not in priority])
-        
-        final_menu = top_list + other_list
-        
-        choice_name = st.selectbox("Select Target Sport", final_menu)
-        choice_key = sports[choice_name]
-
-        if st.button("Scan Market"):
-            with st.spinner(f"Scanning {choice_name}..."):
-                res = get_arbs_engine(choice_key, invest, bookies_tuple, ghost_mode, test_mode)
-                if not res: st.warning("No data found from API.")
-                else: display_arbs(res)
-
-with tab2:
-    st.write("Scans **EPL, NBA, Tennis**.")
-    if st
+                    <b>{a['t1
