@@ -1,137 +1,136 @@
 import streamlit as st
 import requests
-import time
 import pandas as pd
 from datetime import datetime
 
-# PAGE CONFIG
+# --- CONFIG & DARK THEME ---
 st.set_page_config(page_title="Albatross Diamond", page_icon="🦅", layout="wide")
-
-# --- DARK MODE & STYLING (The New Look) ---
 st.markdown("""
 <style>
-    /* Force Dark Theme Background */
     .stApp { background-color: #0E1117; color: #FAFAFA; }
-    
-    /* Make Input Boxes Dark & Sleek */
-    .stTextInput > div > div > input { color: #FAFAFA; background-color: #262730; }
-    .stSelectbox > div > div > div { color: #FAFAFA; background-color: #262730; }
-    .stNumberInput > div > div > input { color: #FAFAFA; background-color: #262730; }
-    
-    /* Metrics (Credit Counter) */
-    [data-testid="stMetricValue"] { color: #00FF00; font-size: 1.2rem; }
+    .stTextInput>div>div>input, .stSelectbox>div>div>div { background-color: #262730; color: #FAFAFA; }
+    [data-testid="stMetricValue"] { color: #00FF00; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 1. SETUP ---
+# --- SETUP ---
 API_KEY = "ccc71cee1188b0ff21fe42e9a7d174cd"
 REGION = 'uk'
 MARKET = 'h2h'
-
-# --- TRANSLATOR ---
 SPORT_LABELS = {
-    "soccer_epl": "🇬🇧 Premier League",
-    "soccer_uefa_champs_league": "🇪🇺 Champions League",
-    "soccer_england_champ": "🇬🇧 Championship",
-    "basketball_nba": "🇺🇸 NBA",
-    "americanfootball_nfl": "🇺🇸 NFL",
-    "icehockey_nhl": "🇺🇸 NHL",
-    "baseball_mlb": "🇺🇸 MLB",
-    "tennis_atp": "🎾 Tennis (ATP)",
-    "tennis_wta": "🎾 Tennis (WTA)"
+    "soccer_epl":"🇬🇧 Premier League", "soccer_uefa_champs_league":"🇪🇺 Champions League",
+    "basketball_nba":"🇺🇸 NBA", "americanfootball_nfl":"🇺🇸 NFL", "tennis_atp":"🎾 Tennis (ATP)"
 }
-TOP_3_KEYS = ['soccer_epl', 'basketball_nba', 'tennis_atp']
+TOP_3 = ['soccer_epl', 'basketball_nba', 'tennis_atp']
 
-# SESSION STATE
-if 'quota' not in st.session_state:
-    st.session_state.quota = "Checking..."
-if 'ledger' not in st.session_state:
-    st.session_state.ledger = pd.DataFrame(columns=["Date","Match","Profit","Bookie 1","Bookie 2"])
+if 'quota' not in st.session_state: st.session_state.quota = "Checking..."
+if 'ledger' not in st.session_state: st.session_state.ledger = pd.DataFrame(columns=["Date","Match","Profit","Bk1","Bk2"])
 
-# --- 2. ADVISOR ---
-def get_sniper_advice():
-    h = datetime.utcnow().hour
-    if 6 <= h < 11: return "🌅 Morning: Target Tennis."
-    elif 11 <= h < 17: return "☀️ Afternoon: Target Premier League."
-    elif 17 <= h < 22: return "🌆 Evening: Target NBA."
-    else: return "🌙 Night: Target NHL / NBA."
-
-
-
-# --- 3. DATA FETCHING ---
-@st.cache_data(ttl=3600)
-def get_active_sports():
-    url = f'https://api.the-odds-api.com/v4/sports?apiKey={API_KEY}'
+# --- ENGINE ---
+def get_odds(sport, invest, bookies, ghost, test):
     try:
-        res = requests.get(url)
-        if 'x-requests-remaining' in res.headers:
-            st.session_state.quota = res.headers['x-requests-remaining']
-        active_sports = {}
-        for s in res.json():
-            if not s['active']: continue
-            if s['key'] in SPORT_LABELS: name = SPORT_LABELS[s['key']]
-            else: name = s['title']
-            active_sports[name] = s['key']
-        return active_sports
-    except: return {}
-
-# --- 4. ENGINE ---
-def get_arbs_engine(sport_key, investment, selected_bookies_tuple, ghost_mode, test_mode):
-    url = f'https://api.the-odds-api.com/v4/sports/{sport_key}/odds'
-    params = {'apiKey':API_KEY, 'regions':REGION, 'markets':MARKET, 'oddsFormat':'decimal'}
-    try:
-        res = requests.get(url, params=params)
-        if 'x-requests-remaining' in res.headers:
-            st.session_state.quota = res.headers['x-requests-remaining']
-        events = res.json()
+        res = requests.get(f'https://api.the-odds-api.com/v4/sports/{sport}/odds', 
+                           params={'apiKey':API_KEY, 'regions':REGION, 'markets':MARKET, 'oddsFormat':'decimal'})
+        if 'x-requests-remaining' in res.headers: st.session_state.quota = res.headers['x-requests-remaining']
+        data = res.json()
     except: return []
 
-    results = []
-    for event in events:
-        if 'bookmakers' not in event: continue
-        try:
-            start_dt = datetime.strptime(event['commence_time'], "%Y-%m-%dT%H:%M:%SZ")
-            start_str = start_dt.strftime("%H:%M")
-        except: start_str = "Soon"
-            
-        teams = [event['home_team'], event['away_team']]
-        best_odds = {}
-        bookies_list = list(selected_bookies_tuple)
-        valid_bookies = [b for b in event['bookmakers'] if b['title'] in bookies_list]
-
-        for bookie in valid_bookies:
-            for market in bookie['markets']:
-                if market['key'] == MARKET:
-                    for outcome in market['outcomes']:
-                        name = outcome['name']
-                        price = outcome['price']
-                        if name not in best_odds or price > best_odds[name]['price']:
-                            best_odds[name] = {'price': price, 'bookie': bookie['title']}
+    out = []
+    for e in data:
+        if 'bookmakers' not in e: continue
+        try: time_str = datetime.strptime(e['commence_time'], "%Y-%m-%dT%H:%M:%SZ").strftime("%H:%M")
+        except: time_str = "Soon"
         
-        if len(best_odds) != 2: continue
-
-        ip1 = 1 / best_odds[teams[0]]['price']
-        ip2 = 1 / best_odds[teams[1]]['price']
-        total_ip = ip1 + ip2
+        best = {}
+        for b in e['bookmakers']:
+            if b['title'] not in bookies: continue
+            for m in b['markets']:
+                if m['key'] == MARKET:
+                    for o in m['outcomes']:
+                        if o['name'] not in best or o['price'] > best[o['name']]['price']:
+                            best[o['name']] = {'price': o['price'], 'bookie': b['title']}
         
-        if total_ip < 1.0 or test_mode: 
-            roi = ((1 / total_ip) - 1) * 100
-            raw_stake1 = (investment * ip1) / total_ip
-            raw_stake2 = (investment * ip2) / total_ip
+        if len(best) != 2: continue
+        teams = list(best.keys())
+        ip = (1/best[teams[0]]['price']) + (1/best[teams[1]]['price'])
+        
+        if ip < 1.0 or test:
+            stake1 = (invest * (1/best[teams[0]]['price'])) / ip
+            stake2 = (invest * (1/best[teams[1]]['price'])) / ip
+            if not ghost: stake1, stake2 = round(stake1*2)/2, round(stake2*2)/2
+            else: stake1, stake2 = round(stake1), round(stake2)
             
-            if ghost_mode:
-                stake1 = round(raw_stake1); stake2 = round(raw_stake2)
-            else:
-                stake1 = round(raw_stake1 * 2) / 2; stake2 = round(raw_stake2 * 2) / 2
+            profit = (stake1 * best[teams[0]]['price']) - (stake1 + stake2)
+            roi = ((1/ip)-1)*100
             
-            ret1 = stake1 * best_odds[teams[0]]['price']
-            ret2 = stake2 * best_odds[teams[1]]['price']
-            profit_money = min(ret1, ret2) - (stake1 + stake2)
-
-            results.append({
-                "match": f"{teams[0]} vs {teams[1]}", "start": start_str,
-                "profit_pct": roi, "profit_money": profit_money,
-                "t1": teams[0], "b1": stake1, "o1": best_odds[teams[0]]['price'], "bk1": best_odds[teams[0]]['bookie'],
-                "t2": teams[1], "b2": stake2, "o2": best_odds[teams[1]]['price'], "bk2": best_odds[teams[1]]['bookie']
+            out.append({
+                "match": f"{teams[0]} vs {teams[1]}", "time": time_str, "roi": roi, "profit": profit,
+                "t1": teams[0], "o1": best[teams[0]]['price'], "b1": best[teams[0]]['bookie'],
+                "t2": teams[1], "o2": best[teams[1]]['price'], "b2": best[teams[1]]['bookie']
             })
-    return results
+    return out
+
+# --- UI ---
+st.title("🦅 Albatross Diamond")
+c1, c2 = st.columns([3,1])
+h = datetime.utcnow().hour
+adv = "🎾 Tennis" if h<11 else "🇬🇧 EPL" if h<17 else "🇺🇸 NBA"
+c1.info(f"Target: {adv}")
+c2.metric("Credits", st.session_state.quota)
+
+st.sidebar.header("Settings")
+all_b = ["William Hill", "Bet365", "Unibet", "Betfair", "Ladbrokes", "Paddy Power"]
+my_b = st.sidebar.multiselect("Bookies", all_b, default=all_b[:3])
+bank = st.sidebar.number_input("Bankroll", 100)
+min_p = st.sidebar.slider("Min Profit", 0.0, 10.0, 0.5)
+ghost = st.sidebar.checkbox("Ghost Mode")
+test = st.checkbox("🛠️ Test Mode (Show All)", value=True)
+
+tab1, tab2, tab3 = st.tabs(["Scanner", "Ledger", "Help"])
+
+with tab1:
+    res = requests.get(f'https://api.the-odds-api.com/v4/sports?apiKey={API_KEY}').json()
+    sports = {s['title']:s['key'] for s in res if s['active']}
+    
+    # Priority Sort
+    prio = ["Premier League", "NBA", "ATP Tennis"]
+    s_list = sorted(list(sports.keys()), key=lambda x: (0 if any(p in x for p in prio) else 1, x))
+    
+    target = st.selectbox("Sport", s_list)
+    if st.button("Scan"):
+        results = get_odds(sports[target], bank, my_b, ghost, test)
+        if not results: st.warning("No odds found.")
+        for r in sorted(results, key=lambda x: x['roi'], reverse=True):
+            if not test and r['profit'] < min_p: continue
+            
+            # Dark Mode Colors
+            color = "#1B2E1E" if r['roi'] > 0 else "#262730"
+            border = "#00FF7F" if r['roi'] > 0 else "#444"
+            
+            st.markdown(f"""
+            <div style="background:{color}; padding:10px; border:1px solid {border}; border-radius:10px; margin-bottom:10px;">
+                <div style="display:flex; justify-content:space-between;">
+                    <b style="color:#FFF">{r['match']}</b>
+                    <span style="color:#CCC">🕒 {r['time']}</span>
+                </div>
+                <div style="color:{'#00FF7F' if r['roi']>0 else '#FFF'}">
+                    {'WIN' if r['roi']>0 else 'NO ARB'}: £{r['profit']:.2f} ({r['roi']:.2f}%)
+                </div>
+                <hr style="margin:5px 0; border-color:#555">
+                <div style="font-size:0.9em; display:flex; justify-content:space-between; color:#CCC">
+                    <div>{r['t1']}<br>{r['o1']} ({r['b1']})</div>
+                    <div>{r['t2']}<br>{r['o2']} ({r['b2']})</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+with tab2:
+    with st.form("log"):
+        c1,c2 = st.columns(2)
+        m = c1.text_input("Match"); p = c2.number_input("Profit")
+        if st.form_submit_button("Save"):
+            st.session_state.ledger = pd.concat([st.session_state.ledger, pd.DataFrame([{"Match":m, "Profit":p}])], ignore_index=True)
+    st.dataframe(st.session_state.ledger)
+
+with tab3:
+    st.markdown("### Guide\n* **Test Mode:** Check box to see all matches.\n* **Credits:** Top right counter.")
