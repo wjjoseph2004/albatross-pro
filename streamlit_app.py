@@ -16,8 +16,7 @@ except:
 REGION = 'uk'
 MARKET = 'h2h'
 
-# --- THE TRANSLATOR (Readable Names) ---
-# This dictionary maps the ugly API keys to beautiful names
+# --- TRANSLATOR (Readable Names) ---
 SPORT_LABELS = {
     "soccer_epl": "🇬🇧 Premier League",
     "soccer_uefa_champs_league": "🇪🇺 Champions League",
@@ -38,20 +37,24 @@ SPORT_LABELS = {
     "mma_mixed_martial_arts": "🥊 MMA / UFC"
 }
 
-# Define our "Sniper Targets" using the Keys
 TOP_3_KEYS = ['soccer_epl', 'basketball_nba', 'tennis_atp']
 
+# Session State
 if 'quota' not in st.session_state: st.session_state.quota = "Unknown"
 if 'ledger' not in st.session_state: 
     st.session_state.ledger = pd.DataFrame(columns=["Date", "Match", "Profit (£)", "Bookie 1", "Bookie 2"])
 
-# --- 2. ADVISOR ---
+# --- 2. ADVISOR (Updated to Match Menu) ---
 def get_sniper_advice():
     h = datetime.utcnow().hour
-    if 6 <= h < 11: return "🌅 **Morning:** Target **Tennis**. European matches starting."
-    elif 11 <= h < 17: return "☀️ **Afternoon:** Target **Premier League**. Check team news."
-    elif 17 <= h < 22: return "🌆 **Evening:** Target **NBA**. US market waking up."
-    else: return "🌙 **Night:** Target **NHL/NBA**. Late moves."
+    if 6 <= h < 11: 
+        return "🌅 **Morning:** Target **🎾 Tennis (ATP)**. European matches starting."
+    elif 11 <= h < 17: 
+        return "☀️ **Afternoon:** Target **🇬🇧 Premier League**. Check team news."
+    elif 17 <= h < 22: 
+        return "🌆 **Evening:** Target **🇺🇸 NBA**. US market waking up."
+    else: 
+        return "🌙 **Night:** Target **🇺🇸 NHL / NBA**. Late moves."
 
 # --- 3. DATA FETCHING ---
 @st.cache_data(ttl=3600)
@@ -61,12 +64,10 @@ def get_active_sports():
         res = requests.get(url)
         if 'x-requests-remaining' in res.headers: st.session_state.quota = res.headers['x-requests-remaining']
         
-        # We only keep sports that are in our LABEL list to keep the menu clean
-        # If you want ALL sports, remove the 'if s['key'] in SPORT_LABELS' part.
+        # Filter and Translate
         active_sports = {}
         for s in res.json():
             if s['active'] and s['key'] in SPORT_LABELS:
-                # Use our readable name as the label, store the key as value
                 readable_name = SPORT_LABELS[s['key']]
                 active_sports[readable_name] = s['key']
         return active_sports
@@ -210,11 +211,9 @@ with tab1:
     sports = get_active_sports()
     if not sports: st.info("Fetching sports list (or none active)...")
     else:
-        # Sort the readable names alphabetically
+        # Sort keys
         sorted_names = sorted(list(sports.keys()))
         choice_name = st.selectbox("Select Target Sport", sorted_names)
-        
-        # We need to get the "Key" back from the "Name"
         choice_key = sports[choice_name]
 
         if st.button("Scan Market"):
@@ -269,11 +268,10 @@ with tab4:
     * **Never bet on Red Cards:** If you see a card with a RED background (Profit > 20%), it is likely a bookie error. If you bet on it, your account might be restricted. **Stick to Green/White cards.**
     
     ### 2. Supported Sports (Renamed)
-    * **🇬🇧 Premier League** (`soccer_epl`)
-    * **🇪🇺 Champions League** (`soccer_uefa_champs_league`)
-    * **🇺🇸 NBA** (`basketball_nba`)
-    * **🎾 Tennis** (`tennis_atp`)
-    * *Note: If a sport isn't active right now, it won't appear in the list.*
+    * **🇬🇧 Premier League**
+    * **🇪🇺 Champions League**
+    * **🇺🇸 NBA**
+    * **🎾 Tennis (ATP/WTA)**
     
     ### 3. What is "Ghost Mode"? 👻
     * **OFF:** The app tells you to bet `£42.50`. This maximizes profit but looks mathematical.
