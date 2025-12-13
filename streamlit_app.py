@@ -104,6 +104,7 @@ def get_arbs_engine(sport_key, investment, selected_bookies_tuple, ghost_mode, t
         ip2 = 1 / best_odds[teams[1]]['price']
         total_ip = ip1 + ip2
         
+        # LOGIC: If (Total IP < 1.0) OR (Test Mode is ON), show the result.
         if total_ip < 1.0 or test_mode: 
             roi = ((1 / total_ip) - 1) * 100
             
@@ -131,7 +132,7 @@ def get_arbs_engine(sport_key, investment, selected_bookies_tuple, ghost_mode, t
             
     return results
 
-# --- 5. INTERFACE (IMPORTANT: DO NOT INDENT THIS PART) ---
+# --- 5. INTERFACE ---
 st.title("🦅 Albatross Diamond")
 st.info(get_sniper_advice())
 
@@ -149,7 +150,8 @@ invest = st.sidebar.number_input("Bankroll (£)", value=100)
 st.sidebar.subheader("🛡️ Safety & Filters")
 min_profit = st.sidebar.slider("Min Profit (£)", 0.0, 10.0, 0.50)
 ghost_mode = st.sidebar.checkbox("👻 Ghost Mode", value=False)
-test_mode = st.sidebar.checkbox("🛠️ Test Mode (Show All)", value=False)
+# CHANGE HERE: Default value is True so you see it immediately
+test_mode = st.sidebar.checkbox("🛠️ Test Mode (Show All)", value=True)
 
 st.write("🔍 **Pre-Scan Tools:**")
 c1, c2 = st.columns([1,1])
@@ -163,22 +165,25 @@ tab1, tab2, tab3, tab4 = st.tabs(["🎯 Manual Scope", "🚀 Fire Sniper", "📒
 def display_arbs(results):
     count = 0
     for a in results:
+        # FILTER: Only hide losing bets if Test Mode is OFF
         if not test_mode and a['profit_money'] < min_profit: continue
+        
         count += 1
         
+        # CARD STYLING
         if a['profit_pct'] > 0:
-            color = "#e8f5e9"
+            color = "#e8f5e9" # Green (Profit)
             border = "#c8e6c9"
             title_color = "#2e7d32"
             status = "WIN"
         else:
-            color = "#f5f5f5"
+            color = "#f5f5f5" # Grey (No Profit)
             border = "#ddd"
             title_color = "#666"
-            status = "NO ARB"
+            status = "NO ARB" # This is for Test Mode
 
         if a['profit_pct'] > 20.0:
-            color = "#ffebee"
+            color = "#ffebee" # Red Warning
             status = "⚠️ ERROR?"
         
         search_q1 = f"{a['bk1']} {a['t1']} vs {a['t2']} odds"
