@@ -4,7 +4,7 @@ import time
 import pandas as pd
 from datetime import datetime
 
-# PAGE CONFIG
+# --- PAGE CONFIG ---
 st.set_page_config(page_title="Albatross Diamond", page_icon="🦅", layout="wide")
 
 # --- 1. SETUP (YOUR PRIVATE KEY) ---
@@ -141,6 +141,7 @@ def get_arbs_engine(sport_key, investment, selected_bookies_tuple, ghost_mode, t
     return results
 
 # --- 5. INTERFACE ---
+# IMPORTANT: These lines must start at the far left (NO INDENTATION)
 st.title("🦅 Albatross Diamond")
 st.info(get_sniper_advice())
 
@@ -165,7 +166,6 @@ c1.link_button("⚽ FlashScore", "https://www.flashscore.co.uk")
 c2.link_button("📡 LiveScore", "https://www.livescore.com")
 st.markdown("---")
 
-# MOVED TEST MODE HERE
 test_mode = st.checkbox("🛠️ **Test Mode (Show All Odds)** - Check this to see all matches instantly.", value=True)
 
 # TABS
@@ -173,6 +173,7 @@ tab1, tab2, tab3, tab4 = st.tabs(["🎯 Manual Scope", "🚀 Fire Sniper", "📒
 
 def display_arbs(results):
     count = 0
+    # Sort: Highest Profit First
     sorted_results = sorted(results, key=lambda x: x['profit_pct'], reverse=True)
     
     for a in sorted_results:
@@ -220,7 +221,7 @@ def display_arbs(results):
         </div>""", unsafe_allow_html=True)
     
     if count == 0: 
-        if test_mode: st.warning("No matches found for this sport. Try a different one.")
+        if test_mode: st.warning("No matches found for this sport right now.")
         else: st.warning(f"No arbs found above £{min_profit:.2f}. Enable 'Test Mode' to see close matches.")
     else: 
         st.success(f"Scan Complete. Showing {count} results.")
@@ -229,16 +230,24 @@ with tab1:
     sports = get_active_sports()
     if not sports: st.info("Fetching sports list...")
     else:
-        # --- PRIORITY SORTING LOGIC ---
-        # This forces EPL, NBA, and Tennis to the top of the list
+        # --- PRIORITY SORTING (This puts NBA/EPL at the top) ---
         all_names = list(sports.keys())
         priority = ["🇬🇧 Premier League", "🇺🇸 NBA", "🎾 Tennis (ATP)", "🎾 Tennis (WTA)"]
         
-        # 1. Find the priority sports that are currently active
         top_list = [name for name in priority if name in all_names]
-        
-        # 2. Find everything else and sort it A-Z
         other_list = sorted([name for name in all_names if name not in priority])
         
-        # 3. Combine them
-        final_menu = top_list
+        final_menu = top_list + other_list
+        
+        choice_name = st.selectbox("Select Target Sport", final_menu)
+        choice_key = sports[choice_name]
+
+        if st.button("Scan Market"):
+            with st.spinner(f"Scanning {choice_name}..."):
+                res = get_arbs_engine(choice_key, invest, bookies_tuple, ghost_mode, test_mode)
+                if not res: st.warning("No data found from API.")
+                else: display_arbs(res)
+
+with tab2:
+    st.write("Scans **EPL, NBA, Tennis**.")
+    if st
