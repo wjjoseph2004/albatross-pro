@@ -122,6 +122,13 @@ st.sidebar.subheader("🛡️ Safety & Filters")
 min_profit = st.sidebar.slider("Min Profit (£)", 0.0, 10.0, 0.50)
 ghost_mode = st.sidebar.checkbox("👻 Ghost Mode", value=False)
 
+# RESTORED: PRE-SCAN TOOLS
+st.write("🔍 **Pre-Scan Tools (Check before you click!):**")
+c1, c2 = st.columns([1,1])
+c1.link_button("⚽ Check FlashScore", "https://www.flashscore.co.uk")
+c2.link_button("📡 Check LiveScore", "https://www.livescore.com")
+st.markdown("---")
+
 # TABS
 tab1, tab2, tab3, tab4 = st.tabs(["🎯 Manual Scope", "🚀 Fire Sniper", "📒 My Ledger", "📘 Help Guide"])
 
@@ -138,6 +145,7 @@ def display_arbs(results):
             color = "#ffebee"
             warn = "🚨 <b>HIGH RISK:</b> >20% Profit. Possible Error."
         
+        # RESTORED: GOOGLE SEARCH LINKS
         search_q1 = f"{a['bk1']} {a['t1']} vs {a['t2']} odds"
         search_q2 = f"{a['bk2']} {a['t1']} vs {a['t2']} odds"
         link1 = f"https://www.google.com/search?q={search_q1.replace(' ', '+')}"
