@@ -25,7 +25,7 @@ st.markdown("""
     /* FIX: Buttons (Scan Market) Text Color */
     button { color: #000000 !important; }
     
-    /* FIX: Checkbox Text Color - Double Strength Selector */
+    /* FIX: Checkbox Text Color */
     .stCheckbox label p { color: #FAFAFA !important; font-weight: bold; }
     .stCheckbox label { color: #FAFAFA !important; }
 </style>
@@ -49,7 +49,6 @@ def update_quota(res):
     if 'x-requests-remaining' in res.headers:
         st.session_state.quota = res.headers['x-requests-remaining']
 
-# We removed cache here momentarily to force a quota check on every load
 def get_sports():
     try:
         res = requests.get(f'https://api.the-odds-api.com/v4/sports?apiKey={API_KEY}')
@@ -105,13 +104,11 @@ def get_odds(sport, invest, bookies, ghost, test):
 # --- INTERFACE ---
 st.title("🦅 Albatross Diamond")
 
-# 1. FETCH DATA FIRST (So Quota Updates)
+# 1. FETCH DATA & CREDITS
 sports_map = get_sports()
 
-# 2. THEN DISPLAY COLUMNS
+# 2. ADVICE & COUNTER
 c1, c2 = st.columns([3,1])
-
-# SMART ALERT SYSTEM
 h = datetime.utcnow().hour
 if 6 <= h < 12: adv = "🌅 Morning: Target ⚽ Soccer"
 elif 12 <= h < 18: adv = "☀️ Afternoon: Target 🇬🇧 Premier League"
@@ -121,14 +118,25 @@ else: adv = "🌙 Night: Target 🇺🇸 NHL / NBA"
 c1.info(adv)
 c2.metric("Credits Left", st.session_state.quota)
 
+# 3. PRE-SCAN TOOLS (RESTORED)
+st.write("🔍 **Pre-Scan Tools:**")
+btn1, btn2 = st.columns(2)
+btn1.link_button("⚽ FlashScore", "https://www.flashscore.co.uk")
+btn2.link_button("📡 LiveScore", "https://www.livescore.com")
+st.markdown("---")
+
+# 4. SIDEBAR & SETTINGS
 st.sidebar.header("Settings")
 all_b = ["William Hill", "Bet365", "Unibet", "Betfair", "Ladbrokes", "Paddy Power", "Sky Bet"]
 my_b = st.sidebar.multiselect("Bookies", all_b, default=all_b[:3])
 bank = st.sidebar.number_input("Bankroll", 100)
 min_p = st.sidebar.slider("Min Profit", 0.0, 10.0, 0.5)
 ghost = st.sidebar.checkbox("Ghost Mode")
+
+# 5. TEST MODE (White Text Fixed)
 test = st.checkbox("🛠️ Test Mode (Show All Odds)", value=True)
 
+# 6. TABS
 tab1, tab2, tab3, tab4 = st.tabs(["Scanner", "🚀 Rocket 3", "Ledger", "Help"])
 
 def show_results(res):
