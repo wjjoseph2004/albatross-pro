@@ -35,10 +35,30 @@ st.markdown("""
 API_KEY = "ccc71cee1188b0ff21fe42e9a7d174cd"
 REGION = 'uk'
 MARKET = 'h2h'
+
+# --- FULL TRANSLATOR (Restored) ---
 SPORT_LABELS = {
-    "soccer_epl":"🇬🇧 Premier League", "soccer_uefa_champs_league":"🇪🇺 Champions League",
-    "basketball_nba":"🇺🇸 NBA", "americanfootball_nfl":"🇺🇸 NFL", "tennis_atp":"🎾 Tennis (ATP)"
+    "soccer_epl": "🇬🇧 Premier League",
+    "soccer_england_champ": "🇬🇧 Championship",
+    "soccer_england_league1": "🇬🇧 League 1",
+    "soccer_england_league2": "🇬🇧 League 2",
+    "soccer_fa_cup": "🇬🇧 FA Cup",
+    "soccer_efl_cup": "🇬🇧 EFL Cup",
+    "soccer_uefa_champs_league": "🇪🇺 Champions League",
+    "soccer_uefa_europa_league": "🇪🇺 Europa League",
+    "soccer_spain_la_liga": "🇪🇸 La Liga",
+    "soccer_germany_bundesliga": "🇩🇪 Bundesliga",
+    "soccer_italy_serie_a": "🇮🇹 Serie A",
+    "soccer_france_ligue_one": "🇫🇷 Ligue 1",
+    "basketball_nba": "🇺🇸 NBA",
+    "americanfootball_nfl": "🇺🇸 NFL",
+    "icehockey_nhl": "🇺🇸 NHL",
+    "baseball_mlb": "🇺🇸 MLB",
+    "tennis_atp": "🎾 Tennis (ATP)",
+    "tennis_wta": "🎾 Tennis (WTA)",
+    "mma_mixed_martial_arts": "🥊 MMA / UFC"
 }
+
 TOP_3 = ['soccer_epl', 'basketball_nba', 'tennis_atp']
 
 if 'quota' not in st.session_state: st.session_state.quota = "Checking..."
@@ -53,7 +73,16 @@ def get_sports():
     try:
         res = requests.get(f'https://api.the-odds-api.com/v4/sports?apiKey={API_KEY}')
         update_quota(res)
-        return {s['title']:s['key'] for s in res.json() if s['active']}
+        # Fallback: If not in labels, use the raw title
+        data = {}
+        for s in res.json():
+            if not s['active']: continue
+            if s['key'] in SPORT_LABELS:
+                name = SPORT_LABELS[s['key']]
+            else:
+                name = s['title']
+            data[name] = s['key']
+        return data
     except: return {}
 
 def get_odds(sport, invest, bookies, ghost, test):
@@ -118,7 +147,7 @@ else: adv = "🌙 Night: Target 🇺🇸 NHL / NBA"
 c1.info(adv)
 c2.metric("Credits Left", st.session_state.quota)
 
-# 3. PRE-SCAN TOOLS (RESTORED)
+# 3. PRE-SCAN TOOLS
 st.write("🔍 **Pre-Scan Tools:**")
 btn1, btn2 = st.columns(2)
 btn1.link_button("⚽ FlashScore", "https://www.flashscore.co.uk")
@@ -133,7 +162,7 @@ bank = st.sidebar.number_input("Bankroll", 100)
 min_p = st.sidebar.slider("Min Profit", 0.0, 10.0, 0.5)
 ghost = st.sidebar.checkbox("Ghost Mode")
 
-# 5. TEST MODE (White Text Fixed)
+# 5. TEST MODE (White Text)
 test = st.checkbox("🛠️ Test Mode (Show All Odds)", value=True)
 
 # 6. TABS
@@ -161,8 +190,10 @@ def show_results(res):
         </div>""", unsafe_allow_html=True)
 
 with tab1:
+    # Priority Sorting: Forces Premier League & NBA to the top
     prio = ["Premier League", "NBA", "ATP Tennis"]
     s_list = sorted(list(sports_map.keys()), key=lambda x: (0 if any(p in x for p in prio) else 1, x))
+    
     target = st.selectbox("Sport", s_list)
     if st.button("Scan Market", type="primary"):
         show_results(get_odds(sports_map[target], bank, my_b, ghost, test))
