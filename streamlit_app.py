@@ -9,11 +9,20 @@ st.markdown("""
 <style>
     /* Dark Background */
     .stApp { background-color: #0E1117; color: #FAFAFA; }
+    
     /* Input Boxes */
     .stTextInput>div>div>input, .stSelectbox>div>div>div { background-color: #262730; color: #FAFAFA; }
+    
     /* Green Counter */
     [data-testid="stMetricValue"] { color: #00FF00; }
-    /* Button Text Fix - Forces text to be black so it's visible */
+    
+    /* FIX: Force Tab Text to be White */
+    .stTabs [data-baseweb="tab"] { color: #FAFAFA !important; }
+    
+    /* FIX: Selected Tab glows Green */
+    .stTabs [aria-selected="true"] { color: #00FF00 !important; border-bottom-color: #00FF00 !important; }
+    
+    /* FIX: Buttons (Scan Market) Text Color */
     button { color: #000000 !important; }
 </style>
 """, unsafe_allow_html=True)
@@ -134,7 +143,7 @@ with tab1:
     prio = ["Premier League", "NBA", "ATP Tennis"]
     s_list = sorted(list(sports_map.keys()), key=lambda x: (0 if any(p in x for p in prio) else 1, x))
     target = st.selectbox("Sport", s_list)
-    # FIX: Added type='primary' to make the button RED and visible
+    # Primary button ensures text is readable
     if st.button("Scan Market", type="primary"):
         show_results(get_odds(sports_map[target], bank, my_b, ghost, test))
 
