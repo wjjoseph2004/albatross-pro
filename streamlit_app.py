@@ -25,9 +25,9 @@ st.markdown("""
     /* FIX: Buttons (Scan Market) Text Color */
     button { color: #000000 !important; }
     
-    /* FIX: Checkbox Text Color (Test Mode) */
-    label { color: #FAFAFA !important; }
-    .stCheckbox { color: #FAFAFA !important; }
+    /* FIX: Checkbox Text Color - Double Strength Selector */
+    .stCheckbox label p { color: #FAFAFA !important; font-weight: bold; }
+    .stCheckbox label { color: #FAFAFA !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -49,7 +49,7 @@ def update_quota(res):
     if 'x-requests-remaining' in res.headers:
         st.session_state.quota = res.headers['x-requests-remaining']
 
-@st.cache_data(ttl=3600)
+# We removed cache here momentarily to force a quota check on every load
 def get_sports():
     try:
         res = requests.get(f'https://api.the-odds-api.com/v4/sports?apiKey={API_KEY}')
@@ -104,23 +104,22 @@ def get_odds(sport, invest, bookies, ghost, test):
 
 # --- INTERFACE ---
 st.title("🦅 Albatross Diamond")
+
+# 1. FETCH DATA FIRST (So Quota Updates)
+sports_map = get_sports()
+
+# 2. THEN DISPLAY COLUMNS
 c1, c2 = st.columns([3,1])
 
 # SMART ALERT SYSTEM
 h = datetime.utcnow().hour
-if 6 <= h < 12:
-    adv = "🌅 Morning: Target ⚽ Soccer"
-elif 12 <= h < 18:
-    adv = "☀️ Afternoon: Target 🇬🇧 Premier League"
-elif 18 <= h < 23:
-    adv = "🌆 Evening: Target 🇺🇸 NBA / NFL"
-else:
-    adv = "🌙 Night: Target 🇺🇸 NHL / NBA"
+if 6 <= h < 12: adv = "🌅 Morning: Target ⚽ Soccer"
+elif 12 <= h < 18: adv = "☀️ Afternoon: Target 🇬🇧 Premier League"
+elif 18 <= h < 23: adv = "🌆 Evening: Target 🇺🇸 NBA / NFL"
+else: adv = "🌙 Night: Target 🇺🇸 NHL / NBA"
 
 c1.info(adv)
-
-sports_map = get_sports()
-c2.metric("Credits", st.session_state.quota)
+c2.metric("Credits Left", st.session_state.quota)
 
 st.sidebar.header("Settings")
 all_b = ["William Hill", "Bet365", "Unibet", "Betfair", "Ladbrokes", "Paddy Power", "Sky Bet"]
@@ -157,7 +156,6 @@ with tab1:
     prio = ["Premier League", "NBA", "ATP Tennis"]
     s_list = sorted(list(sports_map.keys()), key=lambda x: (0 if any(p in x for p in prio) else 1, x))
     target = st.selectbox("Sport", s_list)
-    # Primary button ensures text is readable
     if st.button("Scan Market", type="primary"):
         show_results(get_odds(sports_map[target], bank, my_b, ghost, test))
 
