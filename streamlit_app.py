@@ -1,6 +1,5 @@
 import streamlit as st
 import requests
-import time
 import pandas as pd
 from datetime import datetime
 
@@ -8,9 +7,14 @@ from datetime import datetime
 st.set_page_config(page_title="Albatross Diamond", page_icon="🦅", layout="wide")
 st.markdown("""
 <style>
+    /* Dark Background */
     .stApp { background-color: #0E1117; color: #FAFAFA; }
+    /* Input Boxes */
     .stTextInput>div>div>input, .stSelectbox>div>div>div { background-color: #262730; color: #FAFAFA; }
+    /* Green Counter */
     [data-testid="stMetricValue"] { color: #00FF00; }
+    /* Button Text Fix - Forces text to be black so it's visible */
+    button { color: #000000 !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -92,7 +96,6 @@ h = datetime.utcnow().hour
 adv = "🎾 Tennis" if h<11 else "🇬🇧 EPL" if h<17 else "🇺🇸 NBA"
 c1.info(f"Target: {adv}")
 
-# Initial Load for Credits
 sports_map = get_sports()
 c2.metric("Credits", st.session_state.quota)
 
@@ -131,11 +134,12 @@ with tab1:
     prio = ["Premier League", "NBA", "ATP Tennis"]
     s_list = sorted(list(sports_map.keys()), key=lambda x: (0 if any(p in x for p in prio) else 1, x))
     target = st.selectbox("Sport", s_list)
-    if st.button("Scan"):
+    # FIX: Added type='primary' to make the button RED and visible
+    if st.button("Scan Market", type="primary"):
         show_results(get_odds(sports_map[target], bank, my_b, ghost, test))
 
 with tab2:
-    if st.button("🚀 Launch Rocket 3"):
+    if st.button("🚀 Launch Rocket 3", type="primary"):
         st.write("Scanning Top 3 Markets...")
         combined = []
         for k in TOP_3:
@@ -151,3 +155,4 @@ with tab3:
     st.dataframe(st.session_state.ledger)
 
 with tab4: st.markdown("### Guide\n* **Test Mode:** Check box to see all matches.")
+    
