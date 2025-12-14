@@ -24,6 +24,10 @@ st.markdown("""
     
     /* FIX: Buttons (Scan Market) Text Color */
     button { color: #000000 !important; }
+    
+    /* FIX: Checkbox Text Color (Test Mode) */
+    label { color: #FAFAFA !important; }
+    .stCheckbox { color: #FAFAFA !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -101,9 +105,19 @@ def get_odds(sport, invest, bookies, ghost, test):
 # --- INTERFACE ---
 st.title("🦅 Albatross Diamond")
 c1, c2 = st.columns([3,1])
+
+# SMART ALERT SYSTEM
 h = datetime.utcnow().hour
-adv = "🎾 Tennis" if h<11 else "🇬🇧 EPL" if h<17 else "🇺🇸 NBA"
-c1.info(f"Target: {adv}")
+if 6 <= h < 12:
+    adv = "🌅 Morning: Target ⚽ Soccer"
+elif 12 <= h < 18:
+    adv = "☀️ Afternoon: Target 🇬🇧 Premier League"
+elif 18 <= h < 23:
+    adv = "🌆 Evening: Target 🇺🇸 NBA / NFL"
+else:
+    adv = "🌙 Night: Target 🇺🇸 NHL / NBA"
+
+c1.info(adv)
 
 sports_map = get_sports()
 c2.metric("Credits", st.session_state.quota)
@@ -114,7 +128,7 @@ my_b = st.sidebar.multiselect("Bookies", all_b, default=all_b[:3])
 bank = st.sidebar.number_input("Bankroll", 100)
 min_p = st.sidebar.slider("Min Profit", 0.0, 10.0, 0.5)
 ghost = st.sidebar.checkbox("Ghost Mode")
-test = st.checkbox("🛠️ Test Mode (Show All)", value=True)
+test = st.checkbox("🛠️ Test Mode (Show All Odds)", value=True)
 
 tab1, tab2, tab3, tab4 = st.tabs(["Scanner", "🚀 Rocket 3", "Ledger", "Help"])
 
